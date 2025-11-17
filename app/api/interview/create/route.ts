@@ -49,42 +49,45 @@ export async function POST(request: NextRequest) {
       .single();
 
     let questionBankId: string | null = null;
+    let questionBankUpdatePromise: Promise<string | null> | null = null;
 
-    if (!existingBank) {
-      // Generate question bank for new role+interview combination
-      console.log(`[Interview Create] No question bank found for ${criteria.jobTitle} (${criteria.interviewType}, ${criteria.difficulty}). Generating...`);
-      
-      try {
-        const questionBank = await generateQuestionBank(criteria);
-        
-        // Store question bank in database
-        const { data: newBank, error: bankError } = await supabase
-          .from('interview_question_banks')
-          .insert({
-            job_title: questionBank.jobTitle,
-            interview_type: questionBank.interviewType,
-            difficulty: questionBank.difficulty,
-            focus_areas: questionBank.focusAreas,
-            questions: questionBank.questions,
-            source_urls: questionBank.sourceUrls,
-          })
-          .select('id')
-          .single();
-
-        if (bankError) {
-          console.error('[Interview Create] Error creating question bank:', bankError);
-          // Continue without question bank - interview can still proceed
-        } else {
-          questionBankId = newBank.id;
-          console.log(`[Interview Create] Question bank created with ${questionBank.questions.length} questions`);
-        }
-      } catch (error: any) {
-        console.error('[Interview Create] Error generating question bank:', error);
-        // Continue without question bank - interview can still proceed
-      }
-    } else {
+    if (existingBank) {
       questionBankId = existingBank.id;
       console.log(`[Interview Create] Using existing question bank: ${questionBankId}`);
+    } else {
+      // Generate question bank in the background (non-blocking)
+      // This allows the interview to be created immediately
+      console.log(`[Interview Create] No question bank found for ${criteria.jobTitle} (${criteria.interviewType}, ${criteria.difficulty}). Will generate in background...`);
+      
+      // Fire and forget - generate question bank asynchronously
+      questionBankUpdatePromise = generateQuestionBank(criteria)
+        .then(async (questionBank) => {
+          // Store question bank in database
+          const { data: newBank, error: bankError } = await supabase
+            .from('interview_question_banks')
+            .insert({
+              job_title: questionBank.jobTitle,
+              interview_type: questionBank.interviewType,
+              difficulty: questionBank.difficulty,
+              focus_areas: questionBank.focusAreas,
+              questions: questionBank.questions,
+              source_urls: questionBank.sourceUrls,
+            })
+            .select('id')
+            .single();
+
+          if (bankError) {
+            console.error('[Interview Create] Error creating question bank:', bankError);
+            return null;
+          } else {
+            console.log(`[Interview Create] Question bank created in background with ${questionBank.questions.length} questions`);
+            return newBank.id;
+          }
+        })
+        .catch((error: any) => {
+          console.error('[Interview Create] Error generating question bank in background:', error);
+          return null;
+        });
     }
 
     // Generate persona to get the meta prompt
@@ -113,6 +116,7 @@ export async function POST(request: NextRequest) {
     console.log('END OF META PROMPT');
     console.log('='.repeat(80) + '\n');
 
+    // Create interview immediately (don't wait for question bank if it's generating)
     const { data, error } = await supabase
       .from('interviews')
       .insert({
@@ -120,7 +124,7 @@ export async function POST(request: NextRequest) {
         criteria,
         linkedin_profile_id: linkedinProfileId || null,
         meta_prompt: persona.systemPrompt, // Store the meta prompt once (server-side only)
-        question_bank_id: questionBankId, // Link to question bank if available
+        question_bank_id: questionBankId, // Link to question bank if available (may be null if generating in background)
         status: 'pending',
       })
       .select()
@@ -132,6 +136,21 @@ export async function POST(request: NextRequest) {
         { error: 'Failed to create interview' },
         { status: 500 }
       );
+    }
+
+    // If question bank is being generated in background, update interview when ready
+    if (questionBankUpdatePromise && data?.id) {
+      questionBankUpdatePromise.then(async (newQuestionBankId) => {
+        if (newQuestionBankId) {
+          await supabase
+            .from('interviews')
+            .update({ question_bank_id: newQuestionBankId })
+            .eq('id', data.id);
+          console.log(`[Interview Create] Updated interview ${data.id} with question bank ${newQuestionBankId}`);
+        }
+      }).catch(() => {
+        // Ignore errors - question bank generation already logged
+      });
     }
 
     // Remove meta_prompt from response - never expose to client

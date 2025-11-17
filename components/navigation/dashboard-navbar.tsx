@@ -17,7 +17,7 @@ export function DashboardNavbar() {
   ];
 
   return (
-    <nav className="border-b bg-background sticky top-0 z-50">
+    <nav className="border-b bg-background backdrop-blur-sm sticky top-0 z-50 shadow-sm">
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}

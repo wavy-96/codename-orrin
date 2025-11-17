@@ -24,7 +24,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { X, Info } from 'lucide-react';
+import { X, Info, Loader2 } from 'lucide-react';
 import {
   Tooltip,
   TooltipContent,
@@ -416,7 +416,14 @@ export function CriteriaForm({ linkedinProfileId }: CriteriaFormProps) {
           </div>
 
           <Button type="submit" className="w-full" disabled={isSubmitting}>
-            {isSubmitting ? 'Creating Interview...' : 'Start Interview'}
+            {isSubmitting ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Creating Interview...
+              </>
+            ) : (
+              'Start Interview'
+            )}
           </Button>
         </form>
       </CardContent>

@@ -171,12 +171,12 @@ IMPORTANT: Keep it VERY BRIEF - 2-4 sentences maximum. This is time-limited, so 
 Structure (choose ONE format randomly):
 FORMAT A (50% chance - Direct start):
 1. Warm greeting (1 sentence): "Hi, thanks for joining us today."
-2. Brief self-introduction (1 sentence): "I'm ${persona.name}, ${criteria.jobTitle ? `${criteria.jobTitle} at ${criteria.companyName}` : 'the interviewer'}."
+2. Brief self-introduction (1 sentence): ${persona.name ? `"I'm ${persona.name}, the interviewer for ${criteria.jobTitle ? `the ${criteria.jobTitle} position${criteria.companyName ? ` at ${criteria.companyName}` : ''}` : 'this role'}."` : `"I'm the interviewer for ${criteria.jobTitle ? `the ${criteria.jobTitle} position${criteria.companyName ? ` at ${criteria.companyName}` : ''}` : 'this role'}."`}
 3. Light small talk OR skip it (0-1 sentence): Pick ONE or skip: "How are you doing?" OR "Hope you're having a good day" OR "Ready to get started?"
 
 FORMAT B (50% chance - Ask about candidate):
 1. Warm greeting (1 sentence)
-2. Brief self-introduction (1 sentence)
+2. Brief self-introduction (1 sentence): ${persona.name ? `"I'm ${persona.name}, the interviewer for ${criteria.jobTitle ? `the ${criteria.jobTitle} position${criteria.companyName ? ` at ${criteria.companyName}` : ''}` : 'this role'}."` : `"I'm the interviewer for ${criteria.jobTitle ? `the ${criteria.jobTitle} position${criteria.companyName ? ` at ${criteria.companyName}` : ''}` : 'this role'}."`}
 3. Ask them to introduce themselves (1 sentence): "Why don't you tell me a bit about yourself?" OR "Walk me through your background"
 
 Keep it SHORT, natural, and conversational. No lengthy introductions. Return ONLY the greeting text, nothing else.`
@@ -191,8 +191,10 @@ Interview Context:
 - Focus Areas: ${criteria.focusAreas.join(', ')}
 ${timeRemainingSeconds !== undefined ? `- Time Remaining: ${Math.floor(timeRemainingSeconds / 60)} minutes ${timeRemainingSeconds % 60} seconds` : ''}
 
-${timeRemainingSeconds !== undefined && timeRemainingSeconds < 120 ? `⚠️ TIME MANAGEMENT: Only ${Math.floor(timeRemainingSeconds / 60)}:${String(timeRemainingSeconds % 60).padStart(2, '0')} remaining. Start wrapping up - ask final questions or allow the candidate to ask questions.` : ''}
-${timeRemainingSeconds !== undefined && timeRemainingSeconds < 60 ? `⚠️ URGENT: Less than 1 minute remaining. Politely wrap up the interview and thank the candidate.` : ''}
+${timeRemainingSeconds !== undefined && timeRemainingSeconds <= 30 ? `CRITICAL TIME ALERT\nONLY ${timeRemainingSeconds} SECONDS REMAINING!\n\nYOU MUST IMMEDIATELY WRAP UP THE INTERVIEW.\n\nREQUIRED ACTION: Say exactly this: "Thank you for your time today. We're out of time, but I appreciate you sharing your experience. Do you have any final questions for me?"\n\nDO NOT ask any new questions. DO NOT continue the interview. WRAP UP NOW.` : ''}
+${timeRemainingSeconds !== undefined && timeRemainingSeconds > 30 && timeRemainingSeconds <= 60 ? `URGENT TIME WARNING\nLESS THAN 1 MINUTE REMAINING (${timeRemainingSeconds % 60} seconds)!\n\nYOU MUST WRAP UP THE INTERVIEW IMMEDIATELY.\n\nREQUIRED ACTION: Thank the candidate and ask: "Do you have any questions for me?"\n\nDO NOT ask new questions. Start wrapping up NOW.` : ''}
+${timeRemainingSeconds !== undefined && timeRemainingSeconds > 60 && timeRemainingSeconds <= 90 ? `TIME MANAGEMENT CRITICAL - WRAP UP REQUIRED\nONLY ${Math.floor(timeRemainingSeconds / 60)}:${String(timeRemainingSeconds % 60).padStart(2, '0')} REMAINING (1.5 minutes or less)!\n\nYOU MUST WRAP UP THE INTERVIEW NOW.\n\nREQUIRED ACTION: Ask "Do you have any questions for me?" or make a final comment to conclude the interview.\n\nDO NOT ask new interview questions. DO NOT continue with new topics. Your goal is to wrap up and conclude.\n\nKeep your response VERY BRIEF (1-2 sentences max). This is your wrap-up phase.` : ''}
+${timeRemainingSeconds !== undefined && timeRemainingSeconds > 90 && timeRemainingSeconds <= 120 ? `TIME AWARENESS\n${Math.floor(timeRemainingSeconds / 60)} minutes remaining.\n\nBegin transitioning to wrap-up. Consider asking if the candidate has questions.\nKeep responses brief.` : ''}
 
 Conversation History:
 ${conversationHistory.length > 0 ? conversationHistory.map(msg => `${msg.role}: ${msg.content}`).join('\n') : 'No conversation yet.'}
@@ -210,7 +212,8 @@ Generate a single, SHORT, natural interview question that:
 5. ${criteria.mode === 'practice' ? 'Can include subtle hints if the candidate seems stuck' : 'Maintains strict interview standards'}
 6. Is BRIEF - think of how you'd ask a question in a real conversation
 ${questionBank && questionBank.length > 0 ? '7. If using a question from the bank, adapt it naturally to the conversation context' : ''}
-${timeRemainingSeconds !== undefined && timeRemainingSeconds < 120 ? '8. If time is running low, consider asking: "Do you have any questions for me?" or wrapping up naturally' : ''}
+${timeRemainingSeconds !== undefined && timeRemainingSeconds <= 90 ? '8. CRITICAL: Time is running out (1.5 minutes or less remaining). You MUST wrap up IMMEDIATELY. Ask: "Do you have any questions for me?" or thank them and conclude. DO NOT ask new interview questions. This is the wrap-up phase.' : ''}
+${timeRemainingSeconds !== undefined && timeRemainingSeconds > 90 && timeRemainingSeconds <= 120 ? '8. Time is running low. You MUST start wrapping up. Ask: "Do you have any questions for me?" or begin concluding. Keep responses brief.' : ''}
 
 Return ONLY the question text, nothing else.`;
 
@@ -275,17 +278,28 @@ export async function generateInterviewResponse(
     const recentHistory = conversationHistory.slice(-4);
     
     // Add time awareness to system prompt if time is running low
+    // CRITICAL: This must be at the TOP of the system prompt for maximum visibility
     let enhancedSystemPrompt = persona.systemPrompt;
     if (timeRemainingSeconds !== undefined) {
       const minutes = Math.floor(timeRemainingSeconds / 60);
       const seconds = timeRemainingSeconds % 60;
       
-      if (timeRemainingSeconds < 60) {
-        enhancedSystemPrompt += `\n\n⚠️ URGENT: Less than 1 minute remaining (${seconds} seconds). You MUST wrap up the interview now. Thank the candidate and conclude professionally.`;
-      } else if (timeRemainingSeconds < 120) {
-        enhancedSystemPrompt += `\n\n⚠️ TIME MANAGEMENT: Only ${minutes}:${String(seconds).padStart(2, '0')} remaining. Start wrapping up - ask final questions or allow the candidate to ask questions. Keep responses very brief.`;
-      } else if (timeRemainingSeconds < 180) {
-        enhancedSystemPrompt += `\n\n⏰ TIME AWARENESS: ${minutes} minutes remaining. Begin transitioning to wrap-up questions or allow candidate questions.`;
+      // Prepend time-critical instructions at the beginning of the system prompt
+      let timeCriticalInstructions = '';
+      
+      if (timeRemainingSeconds <= 30) {
+        timeCriticalInstructions = `\n\nCRITICAL TIME ALERT\nONLY ${timeRemainingSeconds} SECONDS REMAINING!\n\nYOU MUST IMMEDIATELY WRAP UP THE INTERVIEW.\n\nREQUIRED ACTION: Say exactly this: "Thank you for your time today. We're out of time, but I appreciate you sharing your experience. Do you have any final questions for me?"\n\nDO NOT ask any new questions. DO NOT continue the interview. WRAP UP NOW.\n\n`;
+      } else if (timeRemainingSeconds <= 60) {
+        timeCriticalInstructions = `\n\nURGENT TIME WARNING\nLESS THAN 1 MINUTE REMAINING (${seconds} seconds)!\n\nYOU MUST WRAP UP THE INTERVIEW IMMEDIATELY.\n\nREQUIRED ACTION: Thank the candidate and ask: "Do you have any questions for me?"\n\nDO NOT ask new questions. Start wrapping up NOW.\n\n`;
+      } else if (timeRemainingSeconds <= 90) {
+        timeCriticalInstructions = `\n\nTIME MANAGEMENT CRITICAL - WRAP UP REQUIRED\nONLY ${minutes}:${String(seconds).padStart(2, '0')} REMAINING (1.5 minutes or less)!\n\nYOU MUST WRAP UP THE INTERVIEW NOW.\n\nREQUIRED ACTION: Ask "Do you have any questions for me?" or make a final comment to conclude the interview.\n\nDO NOT ask new interview questions. DO NOT continue with new topics. Your goal is to wrap up and conclude.\n\nKeep your response VERY BRIEF (1-2 sentences max). This is your wrap-up phase.\n\n`;
+      } else if (timeRemainingSeconds <= 120) {
+        timeCriticalInstructions = `\n\nTIME AWARENESS\n${minutes} minutes remaining.\n\nBegin transitioning to wrap-up. Consider asking if the candidate has questions.\nKeep responses brief.\n\n`;
+      }
+      
+      // Prepend time-critical instructions at the beginning for maximum visibility
+      if (timeCriticalInstructions) {
+        enhancedSystemPrompt = timeCriticalInstructions + enhancedSystemPrompt;
       }
     }
 
