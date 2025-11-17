@@ -35,9 +35,20 @@ export default function SignupPage() {
     setLoading(true);
 
     try {
+      // Get the current origin (works for both localhost and production)
+      // This ensures the redirect URL matches the current domain
+      const redirectTo = typeof window !== 'undefined' 
+        ? `${window.location.origin}/auth/callback?next=/dashboard`
+        : process.env.NEXT_PUBLIC_APP_URL 
+          ? `${process.env.NEXT_PUBLIC_APP_URL}/auth/callback?next=/dashboard`
+          : 'http://localhost:3000/auth/callback?next=/dashboard';
+
       const { error } = await supabase.auth.signUp({
         email,
         password,
+        options: {
+          emailRedirectTo: redirectTo,
+        },
       });
 
       if (error) throw error;

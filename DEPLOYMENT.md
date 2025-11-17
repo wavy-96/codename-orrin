@@ -34,9 +34,30 @@ The `netlify.toml` file has been updated with the correct settings for Next.js 1
      - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
      - `SUPABASE_SERVICE_ROLE_KEY`
      - `OPENAI_API_KEY`
+     - `NEXT_PUBLIC_APP_URL` (set to `https://interview.yourdomain.com` - your production URL)
      - Any other environment variables your app needs
 
-5. **Deploy**
+5. **Configure Supabase Redirect URLs**
+   - Go to your Supabase project dashboard: https://app.supabase.com
+   - Select your project
+   - In the left sidebar, click **Authentication**
+   - Click **URL Configuration** (under Authentication settings)
+   - Set **Site URL** to: `https://interview.yourdomain.com`
+   - In the **Redirect URLs** section, click "Add URL" and add:
+     - `https://interview.yourdomain.com/auth/callback`
+     - `http://localhost:3000/auth/callback` (for local development)
+   - Click **Save** to apply changes
+
+6. **Update Supabase Email Templates** (Important!)
+   - Still in the Supabase dashboard, go to **Authentication** → **Email Templates**
+   - Find the **Confirm signup** template
+   - In the email template, look for the confirmation link
+   - Make sure the link uses `{{ .RedirectTo }}` instead of `{{ .SiteURL }}`
+   - The link should look like: `{{ .RedirectTo }}` or `{{ .ConfirmationURL }}`
+   - This ensures the `emailRedirectTo` parameter from your signup code is used
+   - Click **Save** after making changes
+
+7. **Deploy**
    - Click "Deploy site"
    - Wait for the build to complete
 

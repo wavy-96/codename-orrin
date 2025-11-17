@@ -199,10 +199,16 @@ export function VoiceInterface({
       
       if (audioRef.current) {
         audioRef.current.pause();
+        audioRef.current = null;
       }
 
       const audio = new Audio(audioUrl);
       audioRef.current = audio;
+      
+      // Mobile browsers require user interaction for audio playback
+      // Set volume and preload to help with mobile compatibility
+      audio.volume = 1.0;
+      audio.preload = 'auto';
 
       await new Promise<void>((resolve, reject) => {
         audio.onended = () => {
@@ -215,7 +221,17 @@ export function VoiceInterface({
             setTimeout(() => {
               // Double-check paused state and stream availability
               if (!isPaused && streamRef.current && analyserRef.current) {
-                startVAD();
+                // Resume AudioContext if suspended (common on mobile)
+                if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
+                  audioContextRef.current.resume().then(() => {
+                    startVAD();
+                  }).catch((err) => {
+                    console.error('Error resuming audio context:', err);
+                    startVAD();
+                  });
+                } else {
+                  startVAD();
+                }
               } else {
                 // Try to reinitialize if needed
                 if (!streamRef.current || !analyserRef.current) {
@@ -232,32 +248,57 @@ export function VoiceInterface({
           }
           resolve();
         };
-        audio.onerror = () => {
+        audio.onerror = (err) => {
+          console.error('Audio playback error:', err);
           URL.revokeObjectURL(audioUrl);
           setState('idle');
           // Resume VAD even on error if not paused
           if (autoStartListening && !isPaused && streamRef.current) {
             setTimeout(() => {
               if (!isPaused && streamRef.current && analyserRef.current) {
-                startVAD();
+                if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
+                  audioContextRef.current.resume().then(() => {
+                    startVAD();
+                  }).catch(() => startVAD());
+                } else {
+                  startVAD();
+                }
               }
             }, 300);
           }
-          reject();
+          reject(new Error('Audio playback failed'));
         };
-        audio.play().catch((err) => {
-          URL.revokeObjectURL(audioUrl);
-          setState('idle');
-          // Resume VAD even if play fails
-          if (autoStartListening && !isPaused && streamRef.current) {
-            setTimeout(() => {
-              if (!isPaused && streamRef.current && analyserRef.current) {
-                startVAD();
+        
+        // Attempt to play audio
+        const playPromise = audio.play();
+        
+        if (playPromise !== undefined) {
+          playPromise
+            .then(() => {
+              // Audio started playing successfully
+              console.log('[TTS] Audio playback started');
+            })
+            .catch((err) => {
+              console.error('[TTS] Audio play failed:', err);
+              URL.revokeObjectURL(audioUrl);
+              setState('idle');
+              // Resume VAD even if play fails
+              if (autoStartListening && !isPaused && streamRef.current) {
+                setTimeout(() => {
+                  if (!isPaused && streamRef.current && analyserRef.current) {
+                    if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
+                      audioContextRef.current.resume().then(() => {
+                        startVAD();
+                      }).catch(() => startVAD());
+                    } else {
+                      startVAD();
+                    }
+                  }
+                }, 300);
               }
-            }, 300);
-          }
-          reject(err);
-        });
+              reject(err);
+            });
+        }
       });
     } catch (error) {
       console.error('Error playing TTS:', error);
@@ -266,7 +307,13 @@ export function VoiceInterface({
       if (autoStartListening && !isPaused && streamRef.current) {
         setTimeout(() => {
           if (!isPaused && streamRef.current && analyserRef.current) {
-            startVAD();
+            if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
+              audioContextRef.current.resume().then(() => {
+                startVAD();
+              }).catch(() => startVAD());
+            } else {
+              startVAD();
+            }
           }
         }, 300);
       }
@@ -277,15 +324,41 @@ export function VoiceInterface({
   const initializeMicrophone = async () => {
     try {
       if (streamRef.current) {
-        return; // Already initialized
+        // Check if stream is still active
+        const tracks = streamRef.current.getTracks();
+        const activeTracks = tracks.filter(track => track.readyState === 'live');
+        if (activeTracks.length > 0 && audioContextRef.current && analyserRef.current) {
+          // Stream is still active, just resume AudioContext if needed
+          if (audioContextRef.current.state === 'suspended') {
+            await audioContextRef.current.resume();
+          }
+          return; // Already initialized and active
+        }
+        // Stream exists but is not active, clean it up
+        streamRef.current.getTracks().forEach(track => track.stop());
+        streamRef.current = null;
       }
 
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        } 
+      });
       streamRef.current = stream;
 
-      // Initialize audio context for VAD
-      const audioContext = new AudioContext();
-      audioContextRef.current = audioContext;
+      // Initialize or resume audio context for VAD
+      let audioContext = audioContextRef.current;
+      if (!audioContext) {
+        audioContext = new AudioContext();
+        audioContextRef.current = audioContext;
+      }
+      
+      // Resume AudioContext if suspended (common on mobile after pause)
+      if (audioContext.state === 'suspended') {
+        await audioContext.resume();
+      }
       
       const analyser = audioContext.createAnalyser();
       analyserRef.current = analyser;
@@ -602,15 +675,43 @@ export function VoiceInterface({
     if (isPaused) {
       setIsPaused(false);
       setShowPauseModal(false);
+      
+      // Resume AudioContext if suspended (common on mobile)
+      if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
+        audioContextRef.current.resume().catch((err) => {
+          console.error('Error resuming audio context:', err);
+        });
+      }
+      
       if (audioRef.current && state === 'speaking') {
-        audioRef.current.play().catch(console.error);
-      } else if (state === 'idle' && streamRef.current && analyserRef.current) {
-        // Resume VAD when resuming from pause
-        setTimeout(() => {
-          if (!isPaused && streamRef.current && analyserRef.current) {
-            startVAD();
-          }
-        }, 300);
+        audioRef.current.play().catch((err) => {
+          console.error('Error resuming audio playback:', err);
+        });
+      } else if (state === 'idle') {
+        // Reinitialize microphone if needed (stream might have been stopped)
+        if (!streamRef.current || !analyserRef.current) {
+          initializeMicrophone().then(() => {
+            setTimeout(() => {
+              if (!isPaused && streamRef.current && analyserRef.current) {
+                startVAD();
+              }
+            }, 500);
+          });
+        } else {
+          // Resume VAD when resuming from pause
+          setTimeout(() => {
+            if (!isPaused && streamRef.current && analyserRef.current) {
+              // Ensure AudioContext is resumed
+              if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
+                audioContextRef.current.resume().then(() => {
+                  startVAD();
+                }).catch(() => startVAD());
+              } else {
+                startVAD();
+              }
+            }
+          }, 300);
+        }
       }
     } else {
       setIsPaused(true);
@@ -619,6 +720,8 @@ export function VoiceInterface({
       if (audioRef.current) {
         audioRef.current.pause();
       }
+      // Note: We don't stop the stream on pause, just stop VAD
+      // This allows us to resume quickly without re-requesting permissions
     }
   };
 
