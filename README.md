@@ -1,36 +1,92 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Interview Prep Tool
+
+A voice-based interview preparation tool that allows you to practice interviews with AI-powered interviewers. The tool can emulate specific hiring managers based on their LinkedIn profiles and provides detailed analytics on your performance.
+
+## Features
+
+- 🎤 Voice-based interview conversations using OpenAI TTS/STT
+- 👔 LinkedIn profile integration to emulate real interviewers
+- 📊 Performance analytics and evaluation
+- 📱 Mobile-friendly design
+- 🔐 Secure authentication with Supabase
+- 💾 Conversation history and tracking
+
+## Tech Stack
+
+- **Frontend**: Next.js 14 (App Router), React, TypeScript, Tailwind CSS
+- **UI Components**: shadcn/ui
+- **Backend**: Next.js API routes
+- **Database**: Supabase (PostgreSQL)
+- **Voice**: OpenAI TTS/STT APIs
+- **LLM**: OpenAI GPT-4
+- **Deployment**: Netlify
 
 ## Getting Started
 
-First, run the development server:
+### Prerequisites
 
+- Node.js 18+ and npm
+- Supabase account
+- OpenAI API key
+
+### Installation
+
+1. Clone the repository:
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+git clone <repository-url>
+cd interview_prepper
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+2. Install dependencies:
+```bash
+npm install
+```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+3. Set up environment variables:
+```bash
+cp .env.local.example .env.local
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Fill in your environment variables:
+- `NEXT_PUBLIC_SUPABASE_URL`: Your Supabase project URL
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`: Your Supabase anon key
+- `SUPABASE_SERVICE_ROLE_KEY`: Your Supabase service role key
+- `OPENAI_API_KEY`: Your OpenAI API key
+- `NEXT_PUBLIC_APP_URL`: Your app URL (http://localhost:3000 for local)
 
-## Learn More
+4. Set up Supabase database:
+   - Create a new Supabase project
+   - Run the migrations in `supabase/migrations/001_initial_schema.sql` in your Supabase SQL editor
 
-To learn more about Next.js, take a look at the following resources:
+5. Run the development server:
+```bash
+npm run dev
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Project Structure
 
-## Deploy on Vercel
+```
+interview_prepper/
+├── app/                    # Next.js app directory
+│   ├── (auth)/            # Authentication routes
+│   ├── (dashboard)/       # Protected dashboard routes
+│   └── api/               # API routes
+├── components/            # React components
+│   ├── auth/             # Authentication components
+│   ├── interview/        # Interview interface components
+│   ├── setup/            # Interview setup components
+│   ├── analytics/        # Analytics components
+│   └── ui/               # shadcn/ui components
+├── lib/                   # Utility libraries
+│   ├── supabase/         # Supabase client utilities
+│   ├── openai/           # OpenAI utilities
+│   └── evaluation/       # Evaluation logic
+├── types/                 # TypeScript type definitions
+└── supabase/             # Database migrations
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## License
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+MIT
