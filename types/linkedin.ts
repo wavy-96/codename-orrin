@@ -1,12 +1,18 @@
-export interface LinkedInProfile {
-  id: string;
-  user_id: string;
-  profile_url: string;
-  parsed_data: ParsedLinkedInData;
-  created_at: string;
-  updated_at: string;
-}
-
+/**
+ * Parsed data from a LinkedIn profile (URL or PDF upload).
+ * 
+ * PURPOSE: Used to personalize the AI interviewer to match a real person.
+ * 
+ * When a user uploads their interviewer's LinkedIn profile, this data is
+ * extracted and used to:
+ * - Set the interviewer's name, role, and company in the conversation
+ * - Choose correct pronouns based on gender (optional, user can skip)
+ * - Match the interviewer's communication style
+ * - Add personality traits to make the AI feel more realistic
+ * 
+ * @see lib/openai/interview.ts - generateInterviewerPersona()
+ * @see lib/openai/linkedin-parser.ts - parseLinkedInProfile()
+ */
 export interface ParsedLinkedInData {
   name: string;
   role: string;
@@ -17,6 +23,5 @@ export interface ParsedLinkedInData {
   bio?: string;
   skills?: string[];
   education?: string[];
-  interviewerPersonality?: string; // Summary of interviewer's personality and style from PDF
+  interviewerPersonality?: string;
 }
-
