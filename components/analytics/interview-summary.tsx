@@ -18,8 +18,9 @@ export function InterviewSummary({ interview, evaluation, conversations }: Inter
   if (!evaluation) {
     return (
       <Card>
-        <CardContent className="p-6">
-          <p className="text-muted-foreground">Evaluation is being generated...</p>
+        <CardContent className="p-6 flex items-center gap-3">
+          <div className="h-4 w-4 border-2 border-ethics-black/30 border-t-ethics-black rounded-full animate-spin" />
+          <p className="text-sm text-muted-foreground">Analyzing...</p>
         </CardContent>
       </Card>
     );

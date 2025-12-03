@@ -1,4 +1,6 @@
 import { DashboardNavbar } from '@/components/navigation/dashboard-navbar';
+import { OnboardingCheck } from '@/components/onboarding/onboarding-check';
+import { DashboardLayoutContent } from '@/components/onboarding/dashboard-layout-content';
 
 export default function DashboardLayout({
   children,
@@ -6,10 +8,9 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   return (
-    <>
-      <DashboardNavbar />
-      <main>{children}</main>
-    </>
+    <OnboardingCheck>
+      <DashboardLayoutContent>{children}</DashboardLayoutContent>
+    </OnboardingCheck>
   );
 }
 

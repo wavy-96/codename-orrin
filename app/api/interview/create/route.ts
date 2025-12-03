@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { generateInterviewerPersona } from '@/lib/openai/interview';
 import { generateQuestionBank } from '@/lib/openai/question-bank';
+import { canUserCreateInterview, incrementInterviewUsage } from '@/lib/stripe/subscription';
 import type { InterviewCriteria } from '@/types/interview';
 
 export async function POST(request: NextRequest) {
@@ -15,8 +16,24 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    // Check if user can create an interview based on subscription
+    const subscriptionCheck = await canUserCreateInterview(user.id);
+    if (!subscriptionCheck.allowed) {
+      return NextResponse.json(
+        { 
+          error: subscriptionCheck.reason,
+          code: 'SUBSCRIPTION_LIMIT_REACHED',
+        },
+        { status: 403 }
+      );
+    }
+
     const body = await request.json();
-    const { criteria, linkedinProfileId }: { criteria: InterviewCriteria; linkedinProfileId?: string | null } = body;
+    const { criteria, linkedinProfileId, candidateResumeId }: { 
+      criteria: InterviewCriteria; 
+      linkedinProfileId?: string | null;
+      candidateResumeId?: string | null;
+    } = body;
 
     if (!criteria) {
       return NextResponse.json(
@@ -36,6 +53,20 @@ export async function POST(request: NextRequest) {
       
       if (profile) {
         linkedInData = profile.parsed_data;
+      }
+    }
+
+    // Get candidate resume data if provided
+    let resumeData = null;
+    if (candidateResumeId) {
+      const { data: resume } = await supabase
+        .from('candidate_resumes')
+        .select('parsed_data')
+        .eq('id', candidateResumeId)
+        .single();
+      
+      if (resume) {
+        resumeData = resume.parsed_data;
       }
     }
 
@@ -91,7 +122,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Generate persona to get the meta prompt
-    const persona = await generateInterviewerPersona(criteria, linkedInData);
+    const persona = await generateInterviewerPersona(criteria, linkedInData, resumeData);
 
     // Log the meta prompt with full context
     console.log('\n' + '='.repeat(80));
@@ -105,6 +136,8 @@ export async function POST(request: NextRequest) {
     console.log(`Mode: ${criteria.mode}`);
     console.log(`Focus Areas: ${criteria.focusAreas.join(', ')}`);
     console.log(`LinkedIn Profile ID: ${linkedinProfileId || 'None'}`);
+    console.log(`Candidate Resume ID: ${candidateResumeId || 'None'}`);
+    console.log(`Job Description: ${criteria.jobDescription ? 'Provided' : 'None'}`);
     console.log(`Interviewer Name: ${persona.name}`);
     console.log(`Interviewer Pronouns: ${persona.pronouns.join('/')}`);
     console.log(`Communication Style: ${persona.communicationStyle}`);
@@ -123,6 +156,8 @@ export async function POST(request: NextRequest) {
         user_id: user.id,
         criteria,
         linkedin_profile_id: linkedinProfileId || null,
+        candidate_resume_id: candidateResumeId || null,
+        job_description: criteria.jobDescription || null,
         meta_prompt: persona.systemPrompt, // Store the meta prompt once (server-side only)
         question_bank_id: questionBankId, // Link to question bank if available (may be null if generating in background)
         status: 'pending',
@@ -137,6 +172,9 @@ export async function POST(request: NextRequest) {
         { status: 500 }
       );
     }
+
+    // Increment interview usage count for the user
+    await incrementInterviewUsage(user.id);
 
     // If question bank is being generated in background, update interview when ready
     if (questionBankUpdatePromise && data?.id) {

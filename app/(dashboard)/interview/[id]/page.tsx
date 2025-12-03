@@ -39,6 +39,7 @@ export default async function InterviewPage({
           companyName={interview.criteria.companyName}
           interviewType={interview.criteria.interviewType}
           difficulty={interview.criteria.difficulty}
+          startedAt={interview.started_at}
         />
       </div>
     </div>

@@ -58,7 +58,7 @@
 :root {
   --background: 245 241 230; /* warm-sand */
   --foreground: 28 28 28; /* ethics-black */
-  --radius: 0.625rem;
+  --radius: 0.75rem;
   
   /* Keep shadcn/ui variables for dashboard compatibility */
   --card: oklch(1 0 0);
@@ -138,10 +138,22 @@
 
   body {
     @apply bg-warm-sand text-ethics-black;
+    background-image: 
+      radial-gradient(circle at 80% 0%, rgba(233, 123, 98, 0.03) 0%, transparent 40%),
+      radial-gradient(circle at 0% 100%, rgba(76, 167, 161, 0.03) 0%, transparent 40%);
+    overflow-x: hidden;
+    overflow-y: auto;
   }
   
   * {
     @apply border-border outline-ring/50;
+  }
+
+  .bg-grid-pattern {
+    background-size: 40px 40px;
+    background-image: linear-gradient(to right, rgba(0, 0, 0, 0.03) 1px, transparent 1px),
+                      linear-gradient(to bottom, rgba(0, 0, 0, 0.03) 1px, transparent 1px);
+    mask-image: linear-gradient(to bottom, black 40%, transparent 100%);
   }
 }
 
@@ -166,4 +178,23 @@
   50% {
     transform: scale(1.08);
   }
+}
+
+/* Design System Utilities */
+.font-heading {
+  font-family: var(--font-serif);
+  font-weight: 400;
+  letter-spacing: -0.02em;
+}
+
+.glass-panel {
+  @apply bg-white/60 backdrop-blur-xl border border-white/40 shadow-sm;
+}
+
+.glass-card {
+  @apply bg-white/60 backdrop-blur-md border border-white/20 shadow-sm transition-all duration-300 hover:bg-white/70 hover:shadow-md hover:-translate-y-0.5;
+}
+
+.text-balance {
+  text-wrap: balance;
 }

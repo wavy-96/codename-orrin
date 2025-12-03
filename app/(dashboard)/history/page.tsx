@@ -24,17 +24,17 @@ export default async function HistoryPage() {
     .limit(50);
 
   return (
-    <div className="container mx-auto py-8 px-4">
-      <div className="mb-8">
+    <div className="container mx-auto py-12 px-6 max-w-7xl">
+      <div className="mb-12">
         <div>
-          <h1 className="text-3xl font-bold">Interview History</h1>
-          <p className="text-muted-foreground mt-2">
+          <h1 className="text-4xl font-serif font-medium tracking-tight text-ethics-black mb-3">Interview History</h1>
+          <p className="text-muted-foreground text-lg">
             Review your past interviews and track your progress
           </p>
         </div>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-3">
+      <div className="grid gap-8 lg:grid-cols-3">
         <div className="lg:col-span-2 space-y-4">
           {!interviews || interviews.length === 0 ? (
             <Card>

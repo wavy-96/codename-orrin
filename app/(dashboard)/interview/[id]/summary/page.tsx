@@ -1,6 +1,8 @@
 import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import { InterviewSummary } from '@/components/analytics/interview-summary';
+import Link from 'next/link';
+import { ArrowLeft } from 'lucide-react';
 import { evaluateInterview } from '@/lib/evaluation/evaluator';
 
 export default async function InterviewSummaryPage({
@@ -83,11 +85,20 @@ export default async function InterviewSummaryPage({
 
   return (
     <div className="container mx-auto py-8 px-4">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold">Interview Summary</h1>
-        <p className="text-muted-foreground mt-2">
-          {interview.criteria.jobTitle} at {interview.criteria.companyName}
-        </p>
+      <div className="mb-6 flex items-center gap-4">
+        <Link
+          href="/history"
+          className="group inline-flex h-12 w-12 items-center justify-center rounded-full border border-black/10 bg-white shadow-sm transition hover:-translate-x-0.5 hover:border-ethics-black/30 hover:bg-ethics-black/10"
+          aria-label="Back to history"
+        >
+          <ArrowLeft className="h-5 w-5 text-ethics-black transition group-hover:-translate-x-0.5" />
+        </Link>
+        <div>
+          <h1 className="text-3xl font-bold">Interview Summary</h1>
+          <p className="text-muted-foreground mt-2">
+            {interview.criteria.jobTitle} at {interview.criteria.companyName}
+          </p>
+        </div>
       </div>
       <InterviewSummary
         interview={interview}

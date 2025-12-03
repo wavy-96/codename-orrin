@@ -61,7 +61,7 @@ Evaluate the candidate's performance and provide:
 1. Scores (0-100) for each focus area: ${criteria.focusAreas.join(', ')}
 2. An overall score (0-100)
 3. Detailed feedback on their performance
-4. List of strengths (3-5 items)
+4. List of strengths if any (3-5 items)
 5. List of areas for improvement (3-5 items)
 6. A hiring decision: would you pass this candidate to the next round? (true/false)
 7. Reasoning for your hiring decision: Explain why you would or would not pass them to the next round, considering their technical skills, communication, problem-solving, cultural fit, and alignment with the role requirements.
@@ -89,11 +89,11 @@ Be honest, constructive, and professional. Focus on actionable feedback. Make a 
     // Complex evaluation task requires deep reasoning - use gpt-5 or gpt-5.1
     // Try multiple models in case one returns empty responses
     const modelsToTry = [
-      'gpt-5',                        // Full GPT-5 for complex analysis
+      'gpt-5-mini',                        // Full GPT-5 for complex analysis
       'gpt-5-2025-08-07',             // Pinned GPT-5 version
       'gpt-5.1',                      // Enhanced with better instruction following
       'gpt-5.1-2025-11-13',           // Pinned 5.1 version
-      'gpt-5-mini',                   // Fallback if full model unavailable
+      'gpt-5',                   // Fallback if full model unavailable
       'gpt-4',                        // Final fallback
     ];
 
