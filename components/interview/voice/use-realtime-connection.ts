@@ -17,6 +17,7 @@ export function useOpenAIRealtime({ interviewId, onMessage, onStatusChange }: Us
   const isRespondingRef = useRef<boolean>(false);
   const lastTranscriptRef = useRef<string>('');
   const greetingSentRef = useRef<boolean>(false);
+  const responseRequestedRef = useRef<boolean>(false);
 
   const connectWebRTC = async (ephemeralKey: string, existingStream?: MediaStream) => {
     try {
@@ -73,15 +74,13 @@ export function useOpenAIRealtime({ interviewId, onMessage, onStatusChange }: Us
           try {
             const event = JSON.parse(e.data);
             
-            // When session is created, trigger the initial greeting
+            // When session is created, send the initial user message
             if (event.type === 'session.created' && !greetingSentRef.current) {
               greetingSentRef.current = true;
-              console.log('[Realtime] Session created, triggering greeting...');
+              console.log('[Realtime] Session created, sending user message...');
               
-              // Short delay to ensure everything is ready
               setTimeout(() => {
                 try {
-                  // Create a user message to prompt the AI
                   const userMessage = {
                     type: 'conversation.item.create',
                     item: {
@@ -90,28 +89,36 @@ export function useOpenAIRealtime({ interviewId, onMessage, onStatusChange }: Us
                       content: [
                         {
                           type: 'input_text',
-                          text: '[The interview session has started. Begin with your greeting now.]'
+                          text: '[The interview session has started. Please begin with your greeting now.]'
                         }
                       ]
                     }
                   };
                   dc.send(JSON.stringify(userMessage));
-                  console.log('[Realtime] Sent user message trigger');
-                  
-                  // Now request a response
-                  setTimeout(() => {
-                    const responseRequest = {
-                      type: 'response.create'
-                    };
-                    dc.send(JSON.stringify(responseRequest));
-                    console.log('[Realtime] Sent response.create');
-                    onStatusChange?.('speaking');
-                  }, 200);
-                  
+                  console.log('[Realtime] Sent user message, waiting for confirmation...');
                 } catch (err) {
-                  console.error('[Realtime] Error triggering greeting:', err);
+                  console.error('[Realtime] Error sending user message:', err);
                 }
               }, 300);
+            }
+            
+            // When the conversation item is created, NOW request a response
+            // Only do this once for the initial greeting
+            if (event.type === 'conversation.item.created' && event.item?.role === 'user' && !responseRequestedRef.current) {
+              responseRequestedRef.current = true;
+              console.log('[Realtime] User message confirmed, requesting response...');
+              setTimeout(() => {
+                try {
+                  const responseRequest = {
+                    type: 'response.create'
+                  };
+                  dc.send(JSON.stringify(responseRequest));
+                  console.log('[Realtime] Sent response.create');
+                  onStatusChange?.('speaking');
+                } catch (err) {
+                  console.error('[Realtime] Error requesting response:', err);
+                }
+              }, 100);
             }
             
             handleRealtimeEvent(event);
@@ -153,6 +160,7 @@ export function useOpenAIRealtime({ interviewId, onMessage, onStatusChange }: Us
     try {
       onStatusChange?.('connecting');
       greetingSentRef.current = false; // Reset greeting state for new connection
+      responseRequestedRef.current = false; // Reset response state
       
       // 1. Get Ephemeral Token
       const sessionRes = await fetch(`/api/interview/${interviewId}/session`, { method: 'POST' });
@@ -218,6 +226,12 @@ export function useOpenAIRealtime({ interviewId, onMessage, onStatusChange }: Us
       if (event.type === 'response.done') {
           isRespondingRef.current = false;
           onStatusChange?.('idle');
+          // Log response details for debugging
+          console.log('[Realtime] Response done:', {
+            status: event.response?.status,
+            output: event.response?.output,
+            usage: event.response?.usage
+          });
       }
       
       // Handle errors
