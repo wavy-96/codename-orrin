@@ -27,8 +27,19 @@ export function useOpenAIRealtime({ interviewId, onMessage, onStatusChange }: Us
       audioEl.autoplay = true;
       audioElRef.current = audioEl;
       
-      pc.ontrack = (e) => {
+      // Add to DOM (hidden) to ensure it works in all browsers
+      audioEl.style.display = 'none';
+      document.body.appendChild(audioEl);
+      
+      pc.ontrack = async (e) => {
           audioEl.srcObject = e.streams[0];
+          // Explicitly play audio to bypass browser autoplay restrictions
+          try {
+            await audioEl.play();
+          } catch (err) {
+            console.warn('[Realtime] Audio autoplay blocked, will play on user interaction:', err);
+            // Audio will play automatically once user interacts (e.g., starts speaking)
+          }
       };
 
       // Add Microphone
@@ -53,18 +64,27 @@ export function useOpenAIRealtime({ interviewId, onMessage, onStatusChange }: Us
       dc.onopen = () => {
           setIsConnected(true);
           onStatusChange?.('connected');
+          console.log('[Realtime] Data channel opened');
           
           // Trigger initial greeting from AI
+          // Wait for connection to be fully established
           setTimeout(() => {
-            const greetingMessage = {
-              type: 'response.create',
-              response: {
-                modalities: ['audio', 'text'],
-                instructions: 'Start the interview with your introduction and first question.'
-              }
-            };
-            dc.send(JSON.stringify(greetingMessage));
-          }, 500);
+            try {
+              // Use the correct format for triggering a response in OpenAI Realtime API
+              // The instructions are already in the system prompt, so we just need to trigger a response
+              const greetingMessage = {
+                type: 'response.create',
+                response: {
+                  modalities: ['audio', 'text'],
+                }
+              };
+              console.log('[Realtime] Sending initial greeting trigger');
+              dc.send(JSON.stringify(greetingMessage));
+              onStatusChange?.('speaking'); // Update status immediately
+            } catch (err) {
+              console.error('[Realtime] Error sending greeting:', err);
+            }
+          }, 1000); // Wait 1 second for session to be fully ready
       };
 
       dc.onmessage = (e) => {
@@ -157,8 +177,18 @@ export function useOpenAIRealtime({ interviewId, onMessage, onStatusChange }: Us
       if (event.type === 'input_audio_buffer.speech_started') {
           onStatusChange?.('listening');
       }
+      if (event.type === 'response.created') {
+          // Response is being created, interviewer is about to speak
+          onStatusChange?.('speaking');
+      }
       if (event.type === 'response.audio.delta' || event.type === 'response.audio_transcript.delta') { 
           onStatusChange?.('speaking');
+          // Ensure audio is playing when interviewer starts speaking
+          if (audioElRef.current && audioElRef.current.paused) {
+            audioElRef.current.play().catch(err => {
+              console.warn('[Realtime] Failed to play audio:', err);
+            });
+          }
       }
       if (event.type === 'response.done') {
           isRespondingRef.current = false;
@@ -186,8 +216,11 @@ export function useOpenAIRealtime({ interviewId, onMessage, onStatusChange }: Us
       if (pcRef.current) pcRef.current.close();
       if (msRef.current) msRef.current.getTracks().forEach(t => t.stop());
       if (audioElRef.current) {
+        audioElRef.current.pause();
         audioElRef.current.srcObject = null;
-        audioElRef.current.remove();
+        if (audioElRef.current.parentNode) {
+          audioElRef.current.remove();
+        }
       }
       setIsConnected(false);
       onStatusChange?.('idle');
