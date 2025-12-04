@@ -70,21 +70,41 @@ export function useOpenAIRealtime({ interviewId, onMessage, onStatusChange }: Us
           // Wait for connection to be fully established
           setTimeout(() => {
             try {
-              // Use the correct format for triggering a response in OpenAI Realtime API
-              // The instructions are already in the system prompt, so we just need to trigger a response
-              const greetingMessage = {
-                type: 'response.create',
-                response: {
-                  modalities: ['audio', 'text'],
+              // Step 1: Add a conversation item to give context for the greeting
+              // This tells the AI that the session just started and it should begin
+              const conversationItem = {
+                type: 'conversation.item.create',
+                item: {
+                  type: 'message',
+                  role: 'user',
+                  content: [
+                    {
+                      type: 'input_text',
+                      text: '[Interview session started. Please begin with your greeting.]'
+                    }
+                  ]
                 }
               };
-              console.log('[Realtime] Sending initial greeting trigger');
-              dc.send(JSON.stringify(greetingMessage));
-              onStatusChange?.('speaking'); // Update status immediately
+              console.log('[Realtime] Adding conversation item for greeting context');
+              dc.send(JSON.stringify(conversationItem));
+              
+              // Step 2: Trigger the response after a short delay
+              setTimeout(() => {
+                const responseCreate = {
+                  type: 'response.create',
+                  response: {
+                    modalities: ['audio', 'text'],
+                  }
+                };
+                console.log('[Realtime] Sending response.create');
+                dc.send(JSON.stringify(responseCreate));
+                onStatusChange?.('speaking');
+              }, 100);
+              
             } catch (err) {
               console.error('[Realtime] Error sending greeting:', err);
             }
-          }, 1000); // Wait 1 second for session to be fully ready
+          }, 500); // Wait 500ms for session to be fully ready
       };
 
       dc.onmessage = (e) => {
