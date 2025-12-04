@@ -16,6 +16,7 @@ export function useOpenAIRealtime({ interviewId, onMessage, onStatusChange }: Us
   const audioElRef = useRef<HTMLAudioElement | null>(null);
   const isRespondingRef = useRef<boolean>(false);
   const lastTranscriptRef = useRef<string>('');
+  const greetingSentRef = useRef<boolean>(false);
 
   const connectWebRTC = async (ephemeralKey: string, existingStream?: MediaStream) => {
     try {
@@ -64,52 +65,55 @@ export function useOpenAIRealtime({ interviewId, onMessage, onStatusChange }: Us
       dc.onopen = () => {
           setIsConnected(true);
           onStatusChange?.('connected');
-          console.log('[Realtime] Data channel opened');
-          
-          // Trigger initial greeting from AI
-          // Wait for connection to be fully established
-          setTimeout(() => {
-            try {
-              // Step 1: Add a conversation item to give context for the greeting
-              // This tells the AI that the session just started and it should begin
-              const conversationItem = {
-                type: 'conversation.item.create',
-                item: {
-                  type: 'message',
-                  role: 'user',
-                  content: [
-                    {
-                      type: 'input_text',
-                      text: '[Interview session started. Please begin with your greeting.]'
-                    }
-                  ]
-                }
-              };
-              console.log('[Realtime] Adding conversation item for greeting context');
-              dc.send(JSON.stringify(conversationItem));
-              
-              // Step 2: Trigger the response after a short delay
-              setTimeout(() => {
-                const responseCreate = {
-                  type: 'response.create',
-                  response: {
-                    modalities: ['audio', 'text'],
-                  }
-                };
-                console.log('[Realtime] Sending response.create');
-                dc.send(JSON.stringify(responseCreate));
-                onStatusChange?.('speaking');
-              }, 100);
-              
-            } catch (err) {
-              console.error('[Realtime] Error sending greeting:', err);
-            }
-          }, 500); // Wait 500ms for session to be fully ready
+          console.log('[Realtime] Data channel opened, waiting for session...');
       };
-
+      
+      // Handle session creation event - this is when we should trigger the greeting
       dc.onmessage = (e) => {
           try {
             const event = JSON.parse(e.data);
+            
+            // When session is created, trigger the initial greeting
+            if (event.type === 'session.created' && !greetingSentRef.current) {
+              greetingSentRef.current = true;
+              console.log('[Realtime] Session created, triggering greeting...');
+              
+              // Short delay to ensure everything is ready
+              setTimeout(() => {
+                try {
+                  // Create a user message to prompt the AI
+                  const userMessage = {
+                    type: 'conversation.item.create',
+                    item: {
+                      type: 'message',
+                      role: 'user',
+                      content: [
+                        {
+                          type: 'input_text',
+                          text: '[The interview session has started. Begin with your greeting now.]'
+                        }
+                      ]
+                    }
+                  };
+                  dc.send(JSON.stringify(userMessage));
+                  console.log('[Realtime] Sent user message trigger');
+                  
+                  // Now request a response
+                  setTimeout(() => {
+                    const responseRequest = {
+                      type: 'response.create'
+                    };
+                    dc.send(JSON.stringify(responseRequest));
+                    console.log('[Realtime] Sent response.create');
+                    onStatusChange?.('speaking');
+                  }, 200);
+                  
+                } catch (err) {
+                  console.error('[Realtime] Error triggering greeting:', err);
+                }
+              }, 300);
+            }
+            
             handleRealtimeEvent(event);
           } catch (err) {
             console.error("Error parsing event:", err);
@@ -148,6 +152,7 @@ export function useOpenAIRealtime({ interviewId, onMessage, onStatusChange }: Us
   const connect = useCallback(async (existingStream?: MediaStream) => {
     try {
       onStatusChange?.('connecting');
+      greetingSentRef.current = false; // Reset greeting state for new connection
       
       // 1. Get Ephemeral Token
       const sessionRes = await fetch(`/api/interview/${interviewId}/session`, { method: 'POST' });
