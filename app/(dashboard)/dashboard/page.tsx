@@ -51,7 +51,7 @@ export default async function DashboardPage() {
   // Then fetch all evaluations for those interviews and compute pass rate
   let avgPassRate = 0;
   const completedSessionsCount = completedInterviewIds?.length || 0;
-  if (completedSessionsCount > 0) {
+  if (completedSessionsCount > 0 && completedInterviewIds) {
     const interviewIds = completedInterviewIds.map(i => i.id);
     const { data: evaluations } = await supabase
       .from('evaluations')

@@ -103,10 +103,10 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
   console.log('[Stripe Webhook] Subscription details:', {
     id: subscription.id,
     status: subscription.status,
-    current_period_end: subscription.current_period_end,
+    current_period_end: (subscription as any).current_period_end,
   });
 
-  const periodEnd = safeTimestampToISO(subscription.current_period_end);
+  const periodEnd = safeTimestampToISO((subscription as any).current_period_end);
 
   const { error } = await supabaseAdmin
     .from('user_profiles')
@@ -174,10 +174,10 @@ async function handleSubscriptionUpdate(subscription: Stripe.Subscription) {
     userId: userIdToUpdate,
     status: subscriptionStatus,
     plan: subscriptionPlan,
-    current_period_end: subscription.current_period_end,
+    current_period_end: (subscription as any).current_period_end,
   });
 
-  const periodEnd = safeTimestampToISO(subscription.current_period_end);
+  const periodEnd = safeTimestampToISO((subscription as any).current_period_end);
 
   const { error } = await supabaseAdmin
     .from('user_profiles')

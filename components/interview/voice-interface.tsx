@@ -206,9 +206,9 @@ export function VoiceInterface({
     setState('processing'); // Connecting...
 
     // Ensure we have a stream
-    let stream = streamRef.current;
+    let stream: MediaStream | null = streamRef.current;
     if (!stream || !areTracksActive(stream)) {
-      stream = await initializeStream(isVideoEnabled) || undefined;
+      stream = (await initializeStream(isVideoEnabled)) || null;
     }
 
     // Connect to Realtime API

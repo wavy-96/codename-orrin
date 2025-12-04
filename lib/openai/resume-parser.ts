@@ -5,7 +5,7 @@ export async function parseResumePDF(buffer: Buffer): Promise<ParsedResumeData> 
   console.log('[Resume Parser] Starting PDF parsing with OpenAI Responses API...');
 
   // Create a File object for OpenAI SDK
-  const fileForOpenAI = new File([buffer], 'resume.pdf', { type: 'application/pdf' });
+  const fileForOpenAI = new File([buffer as BlobPart], 'resume.pdf', { type: 'application/pdf' });
 
   // Step 1: Upload file to OpenAI
   console.log('[Resume Parser] Uploading PDF...');
